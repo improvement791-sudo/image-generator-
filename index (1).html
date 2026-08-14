@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Latent Room — free AI image generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1B1712;
+    --bg-soft:#221D16;
+    --tray:#2A241B;
+    --paper:#F3EEE4;
+    --paper-dim:#B9AF9C;
+    --amber:#E0A23D;
+    --safelight:#C1524A;
+    --line:#3B331F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(224,162,61,0.09), transparent 45%),
+      var(--bg);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding:36px 20px 90px;
+  }
+  .wrap{max-width:860px; margin:0 auto;}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--amber); margin:0 0 12px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{content:"◆"; font-size:8px;}
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(30px, 5vw, 46px);
+    line-height:1.05;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    font-size:14.5px; color:var(--paper-dim); max-width:520px; line-height:1.6; margin:0 0 34px;
+  }
+
+  .console{
+    background:var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:22px;
+  }
+  label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--paper-dim); display:block; margin-bottom:8px;
+  }
+  textarea{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:4px;
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    font-size:15px;
+    padding:14px;
+    resize:vertical;
+    min-height:64px;
+    line-height:1.5;
+  }
+  textarea:focus, select:focus, .genbtn:focus{
+    outline:2px solid var(--amber); outline-offset:2px;
+  }
+  .row{
+    display:flex; gap:14px; margin-top:16px; flex-wrap:wrap;
+  }
+  .field{flex:1; min-width:150px;}
+  select{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    border-radius:4px;
+  }
+  input[type=text]{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--paper);
+    font-family:'Inter', sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    border-radius:4px;
+  }
+  .controls-bottom{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:20px; gap:12px; flex-wrap:wrap;
+  }
+  .genbtn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px; letter-spacing:0.03em;
+    background:var(--amber);
+    color:#221803;
+    border:none;
+    padding:13px 24px;
+    border-radius:4px;
+    cursor:pointer;
+    transition:filter .15s ease, transform .1s ease;
+  }
+  .genbtn:hover{filter:brightness(1.08);}
+  .genbtn:active{transform:scale(0.97);}
+  .genbtn:disabled{opacity:0.5; cursor:not-allowed;}
+  .hint-small{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:var(--paper-dim);
+  }
+  .quota-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; color:var(--paper-dim);
+    margin-top:12px; padding-top:12px; border-top:1px solid var(--line);
+  }
+  .quota-line.low{color:var(--safelight);}
+
+  /* print tray: where the image "develops" */
+  .tray{
+    margin-top:30px;
+    background:var(--tray);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:18px;
+    min-height:120px;
+  }
+  .tray-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--paper-dim); margin-bottom:14px; display:flex; justify-content:space-between;
+  }
+  .print-area{
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:4px;
+    min-height:340px;
+    position:relative;
+    overflow:hidden;
+  }
+  .placeholder{
+    text-align:center; color:var(--paper-dim); font-size:13px; padding:30px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .print-area img{
+    max-width:100%; display:block;
+    opacity:0;
+    filter:blur(8px) brightness(0.7);
+    transition:opacity 1.1s ease, filter 1.1s ease;
+  }
+  .print-area img.developed{
+    opacity:1; filter:blur(0) brightness(1);
+  }
+  .developing-msg{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; color:var(--amber);
+  }
+  .dot-pulse{
+    width:8px; height:8px; border-radius:50%; background:var(--amber);
+    animation:pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.25; transform:scale(0.85);}
+    50%{opacity:1; transform:scale(1.1);}
+  }
+  .print-actions{
+    display:flex; gap:10px; margin-top:14px; justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+  .iconbtn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:9px 14px;
+    border-radius:4px;
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .iconbtn:hover{border-color:var(--amber); color:var(--amber);}
+
+  /* gallery */
+  .gallery{
+    margin-top:30px;
+  }
+  .gallery-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--paper-dim); margin-bottom:12px;
+  }
+  .strip{
+    display:flex; gap:10px; overflow-x:auto; padding-bottom:6px;
+  }
+  .strip img{
+    height:76px; width:76px; object-fit:cover;
+    border-radius:4px; border:1px solid var(--line);
+    cursor:pointer; flex-shrink:0;
+    transition:border-color .15s ease;
+  }
+  .strip img:hover{border-color:var(--amber);}
+
+  .footnote{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px; color:var(--paper-dim);
+    margin-top:30px; text-align:center; line-height:1.7;
+  }
+  .footnote a{color:var(--amber);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Latent Room</p>
+    <h1>Describe it.<br>Watch it develop.</h1>
+    <p>A free AI image generator — no account, no payment, no limit beyond fair use. Type a prompt, pick a shape, and let it print.</p>
+  </header>
+
+  <div class="console">
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="a lighthouse at dusk, storm clouds, oil painting style"></textarea>
+    <div class="row">
+      <div class="field">
+        <label for="style">Style</label>
+        <select id="style">
+          <option value="">None (as written)</option>
+          <option value="photorealistic, dslr photo, sharp focus">Photorealistic</option>
+          <option value="digital illustration, clean lines, vibrant">Illustration</option>
+          <option value="anime style, cel shaded">Anime</option>
+          <option value="3d render, octane render, studio lighting">3D Render</option>
+          <option value="watercolor painting, soft edges">Watercolor</option>
+          <option value="oil painting, textured brushstrokes">Oil Painting</option>
+          <option value="minimalist line art">Line Art</option>
+          <option value="cyberpunk, neon, moody lighting">Cyberpunk</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ratio">Shape</label>
+        <select id="ratio">
+          <option value="1024x1024">Square</option>
+          <option value="1024x1280" selected>Portrait</option>
+          <option value="1280x1024">Landscape</option>
+          <option value="1280x720">Widescreen</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="negative">Avoid (optional)</label>
+        <input type="text" id="negative" placeholder="blurry, extra limbs, watermark, low quality">
+      </div>
+    </div>
+    <div class="controls-bottom">
+      <span class="hint-small" id="statusline">Ready</span>
+      <button class="genbtn" id="genbtn">Generate image</button>
+    </div>
+    <div class="quota-line" id="quotaline">5 of 5 prints left this hour</div>
+  </div>
+
+  <div class="tray">
+    <div class="tray-label"><span>Print tray</span><span id="seedline"></span></div>
+    <div class="print-area" id="printArea">
+      <div class="placeholder" id="placeholder">Nothing printed yet —<br>write a prompt above and generate</div>
+    </div>
+    <div class="print-actions" id="printActions" style="display:none;">
+      <button class="iconbtn" id="regenbtn">Reprint (new variation)</button>
+      <button class="iconbtn" id="dlbtn">Download</button>
+    </div>
+  </div>
+
+  <div class="gallery" id="gallerySection" style="display:none;">
+    <div class="gallery-label">This session</div>
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <p class="footnote">Limited to 5 prints per hour per browser, so the free service stays usable for everyone. Images are generated by <a href="https://pollinations.ai" target="_blank" rel="noopener">Pollinations.ai</a>, a free third-party service — generations aren't moderated by Anthropic. Avoid sharing anything you wouldn't want a public API to see.</p>
+</div>
+
+<script>
+(function(){
+  const promptEl = document.getElementById('prompt');
+  const styleEl = document.getElementById('style');
+  const ratioEl = document.getElementById('ratio');
+  const genbtn = document.getElementById('genbtn');
+  const printArea = document.getElementById('printArea');
+  const placeholder = document.getElementById('placeholder');
+  const printActions = document.getElementById('printActions');
+  const regenbtn = document.getElementById('regenbtn');
+  const dlbtn = document.getElementById('dlbtn');
+  const statusline = document.getElementById('statusline');
+  const seedline = document.getElementById('seedline');
+  const gallerySection = document.getElementById('gallerySection');
+  const strip = document.getElementById('strip');
+  const quotaline = document.getElementById('quotaline');
+
+  let currentUrl = null;
+  let currentSeed = null;
+  const history = [];
+
+  const LIMIT = 5;
+  const WINDOW_MS = 60 * 60 * 1000;
+  const STORAGE_KEY = 'latentroom_prints';
+
+  function getTimestamps(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const now = Date.now();
+      return raw.filter(t => now - t < WINDOW_MS);
+    } catch(e){ return []; }
+  }
+  function saveTimestamps(list){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(e){}
+  }
+  function msUntilNextSlot(list){
+    if(list.length === 0) return 0;
+    const oldest = Math.min(...list);
+    return Math.max(0, WINDOW_MS - (Date.now() - oldest));
+  }
+  function fmtMins(ms){
+    const mins = Math.ceil(ms / 60000);
+    if(mins <= 1) return 'about a minute';
+    if(mins < 60) return mins + ' minutes';
+    return Math.round(mins/60) + ' hr';
+  }
+  function refreshQuotaUI(){
+    const list = getTimestamps();
+    const remaining = Math.max(0, LIMIT - list.length);
+    quotaline.classList.toggle('low', remaining <= 1);
+    if(remaining > 0){
+      quotaline.textContent = `${remaining} of ${LIMIT} prints left this hour`;
+      genbtn.disabled = false;
+      regenbtn.disabled = false;
+    } else {
+      const wait = msUntilNextSlot(list);
+      quotaline.textContent = `Hourly limit reached — next print in ${fmtMins(wait)}`;
+      genbtn.disabled = true;
+      regenbtn.disabled = true;
+    }
+    return remaining;
+  }
+  setInterval(refreshQuotaUI, 15000);
+
+  const negativeEl = document.getElementById('negative');
+
+  const QUALITY_BOOST = 'highly detailed, sharp focus, professional quality, well composed';
+  const DEFAULT_NEGATIVE = 'blurry, low quality, distorted, disfigured, extra limbs, watermark, text, bad anatomy';
+
+  function buildUrl(promptText, seed){
+    const [w,h] = ratioEl.value.split('x');
+    const style = styleEl.value;
+    const userNegative = negativeEl.value.trim();
+    const negative = userNegative ? `${DEFAULT_NEGATIVE}, ${userNegative}` : DEFAULT_NEGATIVE;
+    const styledPrompt = style ? `${promptText}, ${style}` : promptText;
+    const fullPrompt = `${styledPrompt}, ${QUALITY_BOOST}`;
+    const encoded = encodeURIComponent(fullPrompt);
+    const params = new URLSearchParams({
+      width: w,
+      height: h,
+      seed: String(seed),
+      model: 'flux',
+      enhance: 'true',
+      nologo: 'true',
+      negative: negative
+    });
+    return `https://image.pollinations.ai/prompt/${encoded}?${params.toString()}`;
+  }
+
+  function generate(forceNewSeed){
+    const text = promptEl.value.trim();
+    if(!text){
+      statusline.textContent = 'Write a prompt first';
+      promptEl.focus();
+      return;
+    }
+    const list = getTimestamps();
+    if(list.length >= LIMIT){
+      const wait = msUntilNextSlot(list);
+      statusline.textContent = `Limit reached — try again in ${fmtMins(wait)}`;
+      refreshQuotaUI();
+      return;
+    }
+    if(forceNewSeed || currentSeed === null){
+      currentSeed = Math.floor(Math.random() * 1000000);
+    }
+    const url = buildUrl(text, currentSeed);
+    currentUrl = url;
+
+    genbtn.disabled = true;
+    regenbtn.disabled = true;
+    statusline.textContent = 'Developing…';
+    seedline.textContent = 'seed ' + currentSeed;
+
+    printArea.innerHTML = `
+      <div class="developing-msg">
+        <div class="dot-pulse"></div>
+        <span>Developing print…</span>
+      </div>
+    `;
+
+    const img = new Image();
+    img.onload = () => {
+      printArea.innerHTML = '';
+      img.className = '';
+      printArea.appendChild(img);
+      requestAnimationFrame(() => img.classList.add('developed'));
+      printActions.style.display = 'flex';
+      statusline.textContent = 'Printed';
+
+      const ts = getTimestamps();
+      ts.push(Date.now());
+      saveTimestamps(ts);
+      refreshQuotaUI();
+
+      history.unshift({url, thumb:url});
+      renderStrip();
+    };
+    img.onerror = () => {
+      printArea.innerHTML = `<div class="placeholder">The print didn't come through — the free service may be busy. Try again in a moment.</div>`;
+      statusline.textContent = 'Failed — try again';
+      refreshQuotaUI();
+    };
+    img.src = url;
+  }
+
+  function renderStrip(){
+    if(history.length === 0){ gallerySection.style.display = 'none'; return; }
+    gallerySection.style.display = 'block';
+    strip.innerHTML = '';
+    history.slice(0, 12).forEach(item => {
+      const im = document.createElement('img');
+      im.src = item.url;
+      im.loading = 'lazy';
+      im.addEventListener('click', () => {
+        printArea.innerHTML = '';
+        const full = new Image();
+        full.onload = () => {
+          printArea.appendChild(full);
+          requestAnimationFrame(() => full.classList.add('developed'));
+        };
+        full.src = item.url;
+        currentUrl = item.url;
+        printActions.style.display = 'flex';
+      });
+      strip.appendChild(im);
+    });
+  }
+
+  genbtn.addEventListener('click', () => generate(true));
+  regenbtn.addEventListener('click', () => generate(true));
+  promptEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) generate(true);
+  });
+
+  refreshQuotaUI();
+
+  dlbtn.addEventListener('click', async () => {
+    if(!currentUrl) return;
+    dlbtn.textContent = 'Fetching…';
+    try{
+      const res = await fetch(currentUrl);
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = 'latent-room-image.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+    } catch(err){
+      alert("Couldn't download the image directly — right-click the image and choose 'Save image as' instead.");
+    } finally {
+      dlbtn.textContent = 'Download';
+    }
+  });
+})();
+</script>
+</body>
+</html>
